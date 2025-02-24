@@ -1,39 +1,62 @@
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './App.css'
-import { createPublicClient, http } from 'viem'
-import { mainnet } from 'viem/chains'
- 
-const queryclient = new QueryClient()
-const client = createPublicClient({ 
-  chain: mainnet, 
-  transport: http(), 
-}) 
+import { http, createConfig, WagmiProvider, useConnect, useAccount, useBalance } from 'wagmi'
+import { base, mainnet} from 'wagmi/chains'
+import { injected} from 'wagmi/connectors'
 
-async function getBalance() {
-  console.log('hello')
-  const balance = await client.getBalance({
-    address: '0x0f4e3b1f7e60c0e0c2a6a1b5f8d9f5a4b9e6f2c1',
-  })
-  console.log(balance.toString())
-  return balance
 
-}
-function Todos() {
-  const query = useQuery({ queryKey: ['balance'], queryFn: getBalance, refetchInterval : 5 * 1000 })
+export const config = createConfig({
+  chains: [mainnet, base],
+  connectors: [
+    injected(),
+  ],
+  transports: {
+    [mainnet.id]: http(),
+    [base.id]: http(),
+  },
+})
 
+function EthSend() {
   return (
-    <div>
-      {query.data}
+    <div> 
+        <input type="text" placeholder="Address" />
+          <button>Send eth</button>
     </div>
   )
 }
+
+const queryClient = new QueryClient();
 function App() {
   return (
-    <QueryClientProvider client={queryclient}>
-       <div> 
-        <Todos/>
-      </div>
-    </QueryClientProvider>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <WalletConnector/>
+        <EthSend />
+        <MyAddress/>
+      </QueryClientProvider>
+    </WagmiProvider>
+    )
+}
+
+function MyAddress(){
+  const {address} = useAccount();
+  const balance  = useBalance({address})
+  return(
+    <div>
+      {address}<br></br>
+      {balance?.data?.formatted}
+
+    </div>
+  )
+}
+function WalletConnector() {
+  const { connect, connectors} = useConnect()
+  return(
+    <div>
+      {connectors.map((connector)=>(
+        <button key = {connector.uid} onClick={() => connect({connector})}>{connector.name}</button>
+      ))}
+    </div>
   )
 }
 export default App
